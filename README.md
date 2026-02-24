@@ -1,65 +1,268 @@
-# Nucleus Pulposus Cell Network Modelling in the Intervertebral Disc
-## Abstract
-Intervertebral disc degeneration (IDD) arises from an intricate imbalance between the anabolic and catabolic processes governing the extracellular matrix (ECM) within the disc. Biochemical processes are complex, redundant and feedback-looped, and improved integration of knowledge is needed. To addess this, a literature-based regulatory network model (RNM) for nucleus pulposus cells (NPC) is proposed, representing the normal state of the intervertebral disc (IVD), in which proteins are represented by nodes that interact among each other through activation and/or inhibition edges. This model includes 32 different proteins and 150 edges by incorporating critical biochemical interactions in IVD regulation, tested in vivo or vitro in humans’ and animals’ NPC, alongside non tissue specific protein-protein interactions. We used the network to calculate the dynamic regulation of each node  through a semi-quantitative method. The basal steady state successfully represented the activity of a normal NPC, and the model was assessed through the published literature, by replicating two independent experimental studies in human normal NPC. Pro-catabolic or pro-anabolic shifts of the network activated by nodal perturbations could be predicted. Sensitivity analysis underscores the significant influence of transforming growth factor beta (TGF-β) and interleukin-1 receptor antagonist (IL-1Ra) on the regulation of structural proteins and degrading enzymes within the system. Given the ongoing challenge of elucidating the mechanisms driving ECM degradation in IDD, this unique IVD RNM holds promise as a tool for exploring and predicting IDD progression, shedding light on IVD phenotypes and guiding experimental research efforts
+# Regulatory Network Model for IVD NP Cell Signaling
 
-## Mendoza Equation
-The Mendoza equation is a mathematical model used to describe the dynamics of nodes in a network. It is implemented in Python and uses ordinary differential equations (ODEs) to compute the behavior of each node over time based on activation and inhibition interactions among them. 
+**A Network-Based Approach to Understanding Key Signaling Pathways in Intervertebral Disc Biology**
 
-### Differential Equation
-The differential equation for the Mendoza model is defined as follows:
+Tseranidou S.<sup>1</sup>, Workineh Z.G.<sup>1</sup>, Segarra-Queralt M.<sup>1</sup>, Chemorion F.K.<sup>1</sup>, Bermudez-Lekerika P.<sup>2,3</sup>, Kanelis E.<sup>4</sup>, Crump K.<sup>2,3</sup>, Gantenbein B.<sup>2,5</sup>, Alexopoulos L.G.<sup>4,6</sup>, Le Maitre C.L.<sup>7</sup>, Pinero J.<sup>8</sup>, Noailly J.<sup>1</sup>
 
-```python
-def ODESysFun(t, X, NumOfNodes, Mact, Minh, Clamped):
-    gamma = np.ones(NumOfNodes)  # Decay constant of each node
-    h = 10  # Steepness of activation
-    f = np.zeros(NumOfNodes)
+<sup>1</sup>Universitat Pompeu Fabra, ES; <sup>2</sup>University of Bern, CH; <sup>3</sup>GCB, University of Bern, CH; <sup>4</sup>Protavio Ltd, GR; <sup>5</sup>Inselspital, University of Bern, CH; <sup>6</sup>NTUA, GR; <sup>7</sup>University of Sheffield, UK; <sup>8</sup>Hospital del Mar Research Institute, ES
 
-    for i in range(NumOfNodes):
-        Ract = Mact[i, :]
-        Rinh = Minh[i, :]
-        sum_alpha_X = np.dot(Ract, X)
-        sum_beta_X = np.dot(Rinh, X)
-        sum_alpha = np.sum(Ract)
-        sum_beta = np.sum(Rinh)
+---
 
-        if np.any(Rinh == 0) and np.any(Ract):
-            w = ((1 + sum_alpha) / sum_alpha) * (sum_alpha_X / (1 + sum_alpha_X))
-        elif np.any(Ract == 0) and np.any(Rinh):
-            w = 1 - ((1 + sum_beta) / sum_beta) * (sum_beta_X / (1 + sum_beta_X))
-        elif np.any(Ract) and np.any(Rinh):
-            w = (((1 + sum_alpha) / sum_alpha) * (sum_alpha_X / (1 + sum_alpha_X))) * (1 - ((1 + sum_beta) / sum_beta) * (sum_beta_X / (1 + sum_beta_X)))
-        else:
-            w = 0
+## Overview
 
-        f[i] = (-np.exp(0.5 * h) + np.exp(-h * (w - 0.5))) / ((1 - np.exp(0.5 * h)) * (1 + np.exp(-h * (w - 0.5)))) - gamma[i] * X[i]
-        
-        if Clamped[i] == 1:
-            f[i] = 0
+This repository contains the computational implementation of a **literature-curated regulatory network model (RNM)** for human **nucleus pulposus (NP) cells** in the intervertebral disc (IVD). The model captures the key signaling pathways involved in IVD homeostasis and degeneration.
 
-    return f
+### Network at a glance
+
+| Property | Value |
+|----------|-------|
+| Proteins (nodes) | 82 |
+| Directed interactions (edges) | 202 |
+| Activation edges | 139 |
+| Inhibition edges | 54 |
+| NP-specific corpus | 48.6% |
+
+The model integrates data from PubMed (45 + 90 articles), STRING, KEGG, and R&D Systems pathway databases.
+
+---
+
+## Mathematical Framework
+
+### Mendoza ODE System
+
+The static knowledge-based network is transformed into a **semi-quantitative dynamical system** using the method of [Mendoza & Xenarios (2006)](https://doi.org/10.1186/1742-4682-3-13). Each node's activation evolves according to an ordinary differential equation (ODE) that integrates upstream activating and inhibiting signals through a sigmoidal transfer function.
+
+#### State equation (Eq. 3)
+
+For each protein node $x_n$, the rate of change is:
+
+$$\frac{dx_n}{dt} = \frac{-e^{0.5 h_n} + e^{-h_n(\omega_n - 0.5)}}{(1 - e^{0.5 h_n})(1 + e^{-h_n(\omega_n - 0.5)})} - \gamma_n x_n$$
+
+where:
+- $h_n$ is the **gain** (steepness) parameter controlling how fast the sigmoid transitions between 0 and 1. High gain values push the system toward Boolean (ON/OFF) behavior.
+- $\omega_n$ is the **aggregated regulatory input** combining all upstream activators and inhibitors.
+- $\gamma_n$ is the **linear decay** constant.
+- The first term is a **sigmoid activation function** that maps $\omega_n \in [0,1]$ to an activation level in $[0,1]$.
+
+#### Aggregated regulatory input $\omega_n$ (Eq. 4)
+
+The net regulatory input $\omega_n$ is computed differently depending on which types of regulators are present:
+
+**Case (i) — Only activators** ($\{x_{nk}^a\}$ is non-empty, no inhibitors):
+
+$$\omega_n = \left(\frac{1 + \sum_k \alpha_{nk}}{\sum_k \alpha_{nk}}\right) \cdot \frac{\sum_k \alpha_{nk} x_{nk}^a}{1 + \sum_k \alpha_{nk} x_{nk}^a}$$
+
+**Case (ii) — Only inhibitors** ($\{x_{nl}^i\}$ is non-empty, no activators):
+
+$$\omega_n = 1 - \left(\frac{1 + \sum_l \beta_{nl}}{\sum_l \beta_{nl}}\right) \cdot \frac{\sum_l \beta_{nl} x_{nl}^i}{1 + \sum_l \beta_{nl} x_{nl}^i}$$
+
+**Case (iii) — Both activators and inhibitors:**
+
+$$\omega_n = \left(\frac{1 + \sum_k \alpha_{nk}}{\sum_k \alpha_{nk}}\right) \cdot \frac{\sum_k \alpha_{nk} x_{nk}^a}{1 + \sum_k \alpha_{nk} x_{nk}^a} \cdot \left(1 - \left(\frac{1 + \sum_l \beta_{nl}}{\sum_l \beta_{nl}}\right) \cdot \frac{\sum_l \beta_{nl} x_{nl}^i}{1 + \sum_l \beta_{nl} x_{nl}^i}\right)$$
+
+where:
+- $\alpha_{nk}$ are the activation weights (influence of activator $k$ on node $n$)
+- $\beta_{nl}$ are the inhibition weights (influence of inhibitor $l$ on node $n$)
+- $x_{nk}^a$ is the current state of activator $k$
+- $x_{nl}^i$ is the current state of inhibitor $l$
+
+The $\omega_n$ formulation ensures values remain in $[0,1]$, preserving the Boolean asymptotic behavior under high gain.
+
+#### Default parameter values
+
+| Parameter | Symbol | Value | Rationale |
+|-----------|--------|-------|-----------|
+| Gain | $h$ | 10 | Intermediate sigmoid steepness |
+| Activation weights | $\alpha$ | 1 | Uniform (no sensitivity data) |
+| Inhibition weights | $\beta$ | 1 | Uniform (no sensitivity data) |
+| Decay constant | $\gamma$ | 1 | Consistent degradation rate |
+
+### Simulation protocol
+
+1. **Baseline (basal)**: 200 independent runs from random initial conditions $x_0 \sim \text{Uniform}(0,1)^N$, integrated over $t \in [0, 100]$. The steady state (SS) is taken as $x(t=100)$. The median across runs defines the baseline expression.
+
+2. **Perturbation (paired design)**: For each basal run, the final state seeds two perturbation runs:
+   - **IL-1$\beta$ stimulation**: Clamp IL-1$\beta$ = 1 (constant input), integrate from basal SS.
+   - **TLR stimulation**: Clamp TLR = 1 (Pam2CSK4 analog), integrate from basal SS.
+
+3. **Statistical tests** (per node, per comparison):
+   - Paired t-test + Wilcoxon signed-rank test
+   - Benjamini-Hochberg FDR correction (q-values)
+   - Distribution diagnostics: skewness, KDE-based mode counting
+
+### IkBa interpretation
+
+In the network topology, IkBa is modeled as an **inhibitory node upstream of p65 NF-kB**. The IKK complex inhibits IkBa, which in turn inhibits p65. This double-negative path reproduces net NF-kB activation upon IL-1$\beta$ stimulation. Importantly, **measured increases in IkBa phosphorylation** (experimental) correspond to **decreased IkBa node activation** (model), because phosphorylation marks IkBa for degradation.
+
+---
+
+## Repository Structure
+
+```
+RNM/
+├── README.md                           # This file
+├── pyproject.toml                      # Python package configuration
+├── requirements.txt                    # Dependencies
+├── .gitignore
+│
+├── data/
+│   └── enriched_topology.xlsx          # Network topology (82 nodes, 202 edges)
+│
+├── rnm/                                # Core Python package
+│   ├── __init__.py                     # Package exports
+│   ├── network.py                      # Load Excel topology -> matrices
+│   ├── ode.py                          # Mendoza ODE system implementation
+│   ├── simulation.py                   # Ensemble simulation engine
+│   ├── statistics.py                   # Statistical analysis (t-test, FDR, etc.)
+│   ├── visualization.py               # Publication-quality plots
+│   └── sbml_export.py                  # SBML Level 3 model export
+│
+├── scripts/
+│   ├── run_enriched.py                 # Reproduce all paper results
+│   └── export_sbml.py                  # Generate SBML model file
+│
+├── model.xml                           # Pre-generated SBML model
+│
+├── results/                            # Generated outputs
+│   ├── figures/                        # All plots (generated by run_enriched.py)
+│   └── tables/                         # Statistics CSV files
+│
+└── legacy/                             # Previous version (32-node model)
+    ├── diffsolvemendoza.py
+    ├── sbmlgenerator.py
+    └── ...
 ```
 
-## Scripts Description
+---
 
-### `diffsolvemendoza.py`
-This script contains the implementation of the Mendoza equation for the simulation of the network dynamics.
+## Installation
 
-### `sbmlgenerator.py`
-Generates an SBML (Systems Biology Markup Language) model from the network data. This model can then be used in various bioinformatics tools to further analyze the network dynamics.
+### Requirements
 
-### `run.py.py`
-Runs the simulation based on the SBML model
+- Python >= 3.10
+- NumPy, SciPy, Pandas, Matplotlib, openpyxl, python-libsbml
 
-## Data Files
+### Setup
 
-### `SMENR1.xlsx`
-Contains the data defining nodes, activators, and inhibitors for the network, which are used as input for the simulations.
+```bash
+git clone https://github.com/kchemorion/RNMUpdate.git
+cd RNMUpdate
+pip install -r requirements.txt
+```
 
-## Visualizations
+Or install as a package:
 
+```bash
+pip install -e .
+```
 
-### `Median Baseline`
-#![Median Baseline](median_baseline.png)
+---
 
-### `Sstimuli_IL-1β`
-![stimuli_IL-1β](stimuli_IL-1β.png)
+## Usage
+
+### Reproduce all paper results
+
+```bash
+python scripts/run_enriched.py --n-runs 200 --output-dir results
+```
+
+This runs the full paired simulation and generates:
+- **Figures**: Median bars, grouped bars, boxplots, hist+KDE pages, histogram grids, median+cluster plots
+- **Tables**: `paired_statistics.csv` with per-node mean, median, SD, skewness, modes, p-values, and q-values
+
+### Generate SBML model
+
+```bash
+python scripts/export_sbml.py --output model.xml
+```
+
+Produces an SBML Level 3 Version 2 file with **rate rules** encoding the full Mendoza ODE for each node. The SBML model can be loaded in COPASI, libRoadRunner, or any SBML-compliant simulator.
+
+### Use as a Python library
+
+```python
+from rnm import load_edge_list, SimulationConfig, run_paired
+
+# Load network
+network = load_edge_list("data/enriched_topology.xlsx")
+print(network.summary())
+
+# Run simulation
+config = SimulationConfig(n_runs=200, h=10.0, gamma=1.0)
+results = run_paired(network, config)
+
+# Analyze
+import numpy as np
+basal_median = np.median(results.xfinal_basal, axis=0)
+for name, val in zip(network.node_names, basal_median):
+    print(f"{name}: {val:.3f}")
+```
+
+---
+
+## SBML Model
+
+The SBML export (`model.xml`) encodes the complete Mendoza ODE system as **rate rules** rather than individual reactions. Each species has a single rate rule:
+
+```
+d[species]/dt = sigmoid(omega(activators, inhibitors); h) - gamma * [species]
+```
+
+where `omega` aggregates all upstream activators and inhibitors according to Eq. 4. This is the mathematically correct representation, replacing the legacy per-reaction kinetic law approach.
+
+---
+
+## Data Format
+
+### Enriched topology (`data/enriched_topology.xlsx`)
+
+The network is defined as an **edge list** in the "Topology for NW30" sheet:
+
+| STIMULI | RELATION | RESPONSE | PATHWAY INVOLVED | TYPE OF CELLS | ... |
+|---------|----------|----------|------------------|---------------|-----|
+| Sox9 | activation | ACAN | TGF-beta | NPC | ... |
+| TLR | inhibition | ACAN | NF-kB | NPC | ... |
+
+Each row represents one directed interaction: STIMULI activates/inhibits RESPONSE.
+
+---
+
+## Acknowledgments
+
+Financial support was received from the European Commission (Marie Sklodowska-Curie Innovative Training Network Disc4all, grant agreement 955735) and from the European Research Council (ERC Consolidator Grant O-Health, grant agreement 101044828).
+
+---
+
+## Authors
+
+| Author | ORCID |
+|--------|-------|
+| Sofia Tseranidou | [0000-0003-1459-5650](https://orcid.org/0000-0003-1459-5650) |
+| Zerihun G. Workineh | [0000-0002-6191-7854](https://orcid.org/0000-0002-6191-7854) |
+| Maria Segarra-Queralt | [0000-0001-9332-0764](https://orcid.org/0000-0001-9332-0764) |
+| Francis K. Chemorion | [0000-0002-2099-0035](https://orcid.org/0000-0002-2099-0035) |
+| Paola Bermudez-Lekerika | [0000-0002-6858-8213](https://orcid.org/0000-0002-6858-8213) |
+| Exarchos Kanelis | [0000-0002-2059-1480](https://orcid.org/0000-0002-2059-1480) |
+| Katherine Crump | [0000-0001-5328-667X](https://orcid.org/0000-0001-5328-667X) |
+| Benjamin Gantenbein | [0000-0002-9005-0655](https://orcid.org/0000-0002-9005-0655) |
+| Leonidas G. Alexopoulos | [0000-0003-0425-166X](https://orcid.org/0000-0003-0425-166X) |
+| Christine L. Le Maitre | [0000-0003-4489-7107](https://orcid.org/0000-0003-4489-7107) |
+| Janet Pinero | [0000-0003-1244-7654](https://orcid.org/0000-0003-1244-7654) |
+| Jerome Noailly | [0000-0003-3446-7621](https://orcid.org/0000-0003-3446-7621) |
+
+---
+
+## Citation
+
+If you use this code or model, please cite:
+
+> Tseranidou, S., Workineh, Z.G., Segarra-Queralt, M., Chemorion, F.K., et al. (2025). A Network-Based Approach to Understanding Key Signaling Pathways in Intervertebral Disc Biology. *[Journal]*.
+
+Previous version (32-node model):
+> Tseranidou, S. et al. (2025). Nucleus pulposus cell network modelling in the intervertebral disc. *npj Systems Biology and Applications*, 11, 13.
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
