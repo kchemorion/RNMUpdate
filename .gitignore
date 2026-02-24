@@ -4,8 +4,6 @@ __pycache__/
 dist/
 build/
 .eggs/
-results/figures/
-results/tables/
 *.DS_Store
 .venv/
 .env
