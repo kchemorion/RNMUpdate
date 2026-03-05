@@ -1,8 +1,9 @@
 """Network topology loading and matrix construction.
 
 Supports two Excel formats:
-  - Edge-list: rows of (STIMULI, RELATION, RESPONSE) — new enriched topology
-  - Adjacency-list: rows of (Node, Activators, Inhibitors, Stimuli) — legacy SMENR1.xlsx
+  - Adjacency-list: rows of (Node, Activators, Inhibitors, Stimuli) — primary format
+    used for both Initial_SP.xlsx (66 nodes) and Enriched_SP.xlsx (82 nodes)
+  - Edge-list: rows of (STIMULI, RELATION, RESPONSE) — reference topology file
 """
 
 from __future__ import annotations
@@ -81,6 +82,7 @@ _NAME_MAP: dict[str, str] = {
     "beta-catenin": "\u03b2-catenin",
     "COL2A1": "COL2A",
     "\u0399L-1R1": "IL-1R1",  # Greek iota (Ι) -> Latin I
+    "TGFRI": "TGFBRI",  # Abbreviated form in Enriched_SP.xlsx
 }
 
 
@@ -167,14 +169,17 @@ def load_edge_list(
 
 
 def load_adjacency_list(filepath: str) -> Network:
-    """Load a regulatory network from the legacy adjacency-list format.
+    """Load a regulatory network from the adjacency-list Excel format.
 
     Each row is a node with comma-separated Activators and Inhibitors.
+    Used for both Initial_SP.xlsx (66 nodes) and Enriched_SP.xlsx (82 nodes).
+
+    The format uses "NOTHING" to denote no activators or inhibitors.
 
     Parameters
     ----------
     filepath : str
-        Path to the Excel file (e.g., SMENR1.xlsx).
+        Path to the Excel file.
 
     Returns
     -------
@@ -184,36 +189,36 @@ def load_adjacency_list(filepath: str) -> Network:
     df = pd.read_excel(filepath)
     df.columns = df.columns.str.strip()
 
-    # The legacy file has "Nodes " with trailing space
     nodes_col = [c for c in df.columns if c.lower().startswith("node")][0]
-    node_names = df[nodes_col].astype(str).str.strip().tolist()
+    raw_names = df[nodes_col].astype(str).str.strip().tolist()
+    node_names = [_harmonize_name(n) for n in raw_names]
     num_nodes = len(node_names)
     node_idx = {name: i for i, name in enumerate(node_names)}
-
-    # Stimuli column maps to same node list for matrix indexing
-    stimuli_col = "Stimuli" if "Stimuli" in df.columns else nodes_col
-    stimuli_names = df[stimuli_col].astype(str).str.strip().tolist()
-    stimuli_idx = {name: i for i, name in enumerate(stimuli_names)}
 
     mact = np.zeros((num_nodes, num_nodes), dtype=np.float64)
     minh = np.zeros((num_nodes, num_nodes), dtype=np.float64)
 
+    _empty = {"NOTHING", "nan", ""}
+
     for i in range(num_nodes):
-        # Parse comma-separated activator/inhibitor lists
         act_str = str(df["Activators"].iloc[i]).strip()
         inh_str = str(df["Inhibitors"].iloc[i]).strip()
 
-        if act_str and act_str != "nan":
+        if act_str not in _empty:
             for a in act_str.split(","):
-                a = a.strip()
-                if a in stimuli_idx:
-                    mact[i, stimuli_idx[a]] = 1.0
+                a = _harmonize_name(a.strip())
+                if a in node_idx:
+                    mact[i, node_idx[a]] = 1.0
+                else:
+                    print(f"WARNING: Activator '{a}' of node '{node_names[i]}' not in node list")
 
-        if inh_str and inh_str != "nan":
+        if inh_str not in _empty:
             for b in inh_str.split(","):
-                b = b.strip()
-                if b in stimuli_idx:
-                    minh[i, stimuli_idx[b]] = 1.0
+                b = _harmonize_name(b.strip())
+                if b in node_idx:
+                    minh[i, node_idx[b]] = 1.0
+                else:
+                    print(f"WARNING: Inhibitor '{b}' of node '{node_names[i]}' not in node list")
 
     return Network(
         node_names=node_names,

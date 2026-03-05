@@ -17,10 +17,10 @@ This repository contains the computational implementation of a **literature-cura
 | Property | Value |
 |----------|-------|
 | Proteins (nodes) | 82 |
-| Directed interactions (edges) | 202 |
-| Activation edges | 139 |
-| Inhibition edges | 54 |
-| NP-specific corpus | 48.6% |
+| Directed interactions (edges) | 199 |
+| Activation edges | 147 |
+| Inhibition edges | 52 |
+| NP-specific corpus | 41.4% |
 
 The model integrates data from PubMed (45 + 90 articles), STRING, KEGG, and R&D Systems pathway databases.
 
@@ -106,7 +106,8 @@ RNM/
 ├── .gitignore
 │
 ├── data/
-│   └── enriched_topology.xlsx          # Network topology (82 nodes, 202 edges)
+│   ├── enriched_topology.xlsx          # Enriched network (82 nodes, 199 edges)
+│   └── initial_topology.xlsx           # Initial network (66 nodes, 86 edges)
 │
 ├── rnm/                                # Core Python package
 │   ├── __init__.py                     # Package exports
@@ -118,7 +119,8 @@ RNM/
 │   └── sbml_export.py                  # SBML Level 3 model export
 │
 ├── scripts/
-│   ├── run_enriched.py                 # Reproduce all paper results
+│   ├── run_enriched.py                 # Reproduce enriched topology results
+│   ├── run_initial.py                  # Run initial topology (basal only)
 │   └── export_sbml.py                  # Generate SBML model file
 │
 ├── model.xml                           # Pre-generated SBML model
@@ -216,14 +218,18 @@ where `omega` aggregates all upstream activators and inhibitors according to Eq.
 
 ### Enriched topology (`data/enriched_topology.xlsx`)
 
-The network is defined as an **edge list** in the "Topology for NW30" sheet:
+The network is defined as an **adjacency list** with one row per node:
 
-| STIMULI | RELATION | RESPONSE | PATHWAY INVOLVED | TYPE OF CELLS | ... |
-|---------|----------|----------|------------------|---------------|-----|
-| Sox9 | activation | ACAN | TGF-beta | NPC | ... |
-| TLR | inhibition | ACAN | NF-kB | NPC | ... |
+| Nodes | Activators | Inhibitors | Stimuli |
+|-------|-----------|------------|---------|
+| ACAN | Sox9, SMAD2/3 | TLR, β-catenin | ACAN |
+| COL1A | RUNX2 | NOTHING | COL1A |
 
-Each row represents one directed interaction: STIMULI activates/inhibits RESPONSE.
+Each row defines a node and its comma-separated upstream activators and inhibitors. "NOTHING" indicates no regulators of that type.
+
+### Initial topology (`data/initial_topology.xlsx`)
+
+Same adjacency-list format with 66 nodes and 86 edges (the pre-enrichment network).
 
 ---
 

@@ -24,7 +24,7 @@ matplotlib.use("Agg")  # Non-interactive backend for servers
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rnm.network import load_edge_list
+from rnm.network import load_adjacency_list
 from rnm.simulation import SimulationConfig, run_paired
 from rnm.statistics import compute_node_stats, export_statistics_csv
 from rnm.visualization import (
@@ -54,7 +54,7 @@ def main():
     # ---- Load network ----
     print("=" * 60)
     print("Loading enriched network topology...")
-    network = load_edge_list(args.data_file)
+    network = load_adjacency_list(args.data_file)
     print(network.summary())
     print(f"Node names: {network.node_names}")
     print("=" * 60)

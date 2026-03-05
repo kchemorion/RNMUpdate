@@ -19,7 +19,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rnm.network import load_edge_list
+from rnm.network import load_adjacency_list
 from rnm.simulation import SimulationConfig, run_basal_only
 from rnm.sbml_export import export_sbml
 
@@ -38,7 +38,7 @@ def main():
 
     # Load network
     print("Loading network...")
-    network = load_edge_list(args.data_file)
+    network = load_adjacency_list(args.data_file)
     print(network.summary())
 
     # Compute baseline median for initial concentrations

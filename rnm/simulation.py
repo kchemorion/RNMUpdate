@@ -13,7 +13,7 @@ import numpy as np
 from scipy.integrate import odeint
 
 from rnm.network import Network
-from rnm.ode import mendoza_ode
+from rnm.ode import mendoza_ode, _precompute_masks
 
 
 @dataclass
@@ -97,13 +97,14 @@ def _solve_ode(
     minh: np.ndarray,
     clamped: np.ndarray,
     clamped_values: np.ndarray,
+    cache: dict | None = None,
 ) -> np.ndarray:
     """Integrate the Mendoza ODE system from initial condition x0."""
     xout = odeint(
         mendoza_ode,
         x0,
         tspan,
-        args=(num_nodes, gamma, h, mact, minh, clamped, clamped_values),
+        args=(num_nodes, gamma, h, mact, minh, clamped, clamped_values, cache),
         full_output=False,
     )
     return xout
@@ -136,6 +137,7 @@ def run_basal_only(
     gamma = np.full(N, config.gamma, dtype=np.float64)
     clamped = np.zeros(N, dtype=np.float64)
     clamped_values = np.zeros(N, dtype=np.float64)
+    cache = _precompute_masks(network.mact, network.minh)
 
     xfinal_basal = np.zeros((config.n_runs, N), dtype=np.float64)
     xtraj_basal = np.zeros((config.n_runs, n_t, N), dtype=np.float64)
@@ -144,7 +146,7 @@ def run_basal_only(
         x0 = rng.random(N)
         xout = _solve_ode(
             x0, config.tspan, N, gamma, config.h,
-            network.mact, network.minh, clamped, clamped_values,
+            network.mact, network.minh, clamped, clamped_values, cache,
         )
         xtraj_basal[r] = xout
         xfinal_basal[r] = xout[-1]
@@ -193,6 +195,7 @@ def run_paired(
     n_t = len(config.tspan)
     rng = np.random.default_rng(config.random_seed)
     gamma = np.full(N, config.gamma, dtype=np.float64)
+    cache = _precompute_masks(network.mact, network.minh)
 
     # Find stimulus node indices
     idx_il1b = network.node_index(il1b_node)
@@ -214,7 +217,7 @@ def run_paired(
         x0 = rng.random(N)
         xout_b = _solve_ode(
             x0, config.tspan, N, gamma, config.h,
-            network.mact, network.minh, clamped_off, clamped_vals_off,
+            network.mact, network.minh, clamped_off, clamped_vals_off, cache,
         )
         xtraj_basal[r] = xout_b
         xb_final = xout_b[-1].copy()
@@ -230,7 +233,7 @@ def run_paired(
         x0_il1b[idx_il1b] = 1.0
         xout_il1b = _solve_ode(
             x0_il1b, config.tspan, N, gamma, config.h,
-            network.mact, network.minh, clamped_il1b, clamped_vals_il1b,
+            network.mact, network.minh, clamped_il1b, clamped_vals_il1b, cache,
         )
         xtraj_il1b[r] = xout_il1b
         xfinal_il1b[r] = xout_il1b[-1]
@@ -245,7 +248,7 @@ def run_paired(
         x0_tlr[idx_tlr] = 1.0
         xout_tlr = _solve_ode(
             x0_tlr, config.tspan, N, gamma, config.h,
-            network.mact, network.minh, clamped_tlr, clamped_vals_tlr,
+            network.mact, network.minh, clamped_tlr, clamped_vals_tlr, cache,
         )
         xtraj_tlr[r] = xout_tlr
         xfinal_tlr[r] = xout_tlr[-1]
