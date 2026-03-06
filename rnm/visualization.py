@@ -40,7 +40,7 @@ _CATABOLIC_NODES = {
     "IFN-\u03b3", "IL-8", "CSF2", "CGRP",
     "MMP1", "MMP2", "MMP3", "MMP9", "MMP13",
     "ADAMTS4/5", "VEGF", "COL1A", "COL10A1",
-    "p65", "p38", "JNK", "ERK",
+    "p65", "p38", "JNK",
     "\u03b2-catenin", "wnt3a", "wnt5a",
     "TLR", "TNFR1", "IL-1R1", "IL-6R", "IFN-\u03b3R",
     "IL-17RA", "IL-18RA", "CXCR1", "IL-12R",
